@@ -1,103 +1,151 @@
-import Image from "next/image";
+"use client";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { StatusBadge } from "@/components/status-badge";
+import { api } from "@/lib/api";
 
-export default function Home() {
+type Agent = { id: string; name: string; email: string; role: 'agent'|'super_agent'; status: string };
+type UserRow = { id: string; name: string; status: string; assignedAgent?: { _id: string; name: string } };
+
+export default function Page() {
+  const [me, setMe] = useState<Agent | null>(null);
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [agents, setAgents] = useState<any[]>([]);
+  const [convos, setConvos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const m = await api.getMe();
+        if (!mounted) return;
+        setMe(m as any);
+        const [u, a, c] = await Promise.all([
+          api.listUsers(),
+          m.role === 'super_agent' ? api.listAgents() : Promise.resolve([]),
+          api.listAgentConversations().catch(() => []),
+        ]);
+        if (!mounted) return;
+        setUsers(u as any);
+        setAgents(a as any);
+        setConvos(c as any);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const totalUsers = users.length;
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { new: 0, contacted: 0 };
+    for (const u of users) {
+      const s = String(u.status || '').toLowerCase();
+      if (s === 'new') counts.new += 1;
+      if (s === 'contacted') counts.contacted += 1;
+    }
+    return counts;
+  }, [users]);
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <p className="text-sm text-gray-600">Quick snapshot of your workspace.</p>
+      </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4">
+        <Card>
+          <CardHeader><CardTitle>Total Users</CardTitle></CardHeader>
+          <CardContent className="text-2xl font-semibold">{totalUsers}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>New</CardTitle></CardHeader>
+          <CardContent className="text-2xl font-semibold">{statusCounts.new}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Contacted</CardTitle></CardHeader>
+          <CardContent className="text-2xl font-semibold">{statusCounts.contacted}</CardContent>
+        </Card>
+        {me?.role === 'super_agent' && (
+          <Card className="md:col-span-1">
+            <CardHeader><CardTitle>Agents</CardTitle></CardHeader>
+            <CardContent className="text-2xl font-semibold">{agents.length}</CardContent>
+          </Card>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Recent users */}
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle>Recent Users</CardTitle>
+            <Link href="/users" className="text-xs underline">View all</Link>
+          </CardHeader>
+          <CardContent>
+            {loading ? 'Loading...' : (
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Name</TH>
+                    <TH>Status</TH>
+                    <TH>Assigned</TH>
+                    <TH>Actions</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {users.slice(0, 5).map((u) => (
+                    <TR key={u.id}>
+                      <TD>{u.name}</TD>
+                      <TD><StatusBadge value={u.status} /></TD>
+                      <TD>{u.assignedAgent?.name || '—'}</TD>
+                      <TD>
+                        <Link href={`/users/${u.id}`}>
+                          <span className="inline-flex rounded-md border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">View</span>
+                        </Link>
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent conversations */}
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle>Recent Conversations</CardTitle>
+            <Link href="/chat" className="text-xs underline">Open chat</Link>
+          </CardHeader>
+          <CardContent>
+            {convos.length === 0 ? (
+              <div className="text-sm text-slate-500">No conversations yet.</div>
+            ) : (
+              <div className="divide-y">
+                {convos.slice(0,5).map((c:any) => (
+                  <div key={c.peer.id} className="flex items-center justify-between py-3">
+                    <div>
+                      <div className="font-medium">{c.peer.name}</div>
+                      <div className="text-xs text-slate-500">{new Date(c.lastMessage?.timestamp).toLocaleString()}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {c.unreadCount > 0 && (
+                        <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-semibold text-white">{c.unreadCount}</span>
+                      )}
+                      <Link href="/chat" className="text-xs underline">Reply</Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
