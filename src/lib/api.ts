@@ -104,5 +104,60 @@ export const api = {
     const qs = role ? `?role=${role}` : '';
     const { agents } = await req(`/agents${qs}`);
     return agents as any[];
+  },
+  // Leads
+  async listLeads(params?: { q?: string; status?: string; source?: string; tag?: string; assignedAgent?: string; page?: number; limit?: number }) {
+    const qs = new URLSearchParams();
+    if (params) {
+      for (const [k, v] of Object.entries(params)) if (v != null && v !== '') qs.set(k, String(v));
+    }
+    const { leads } = await req(`/leads${qs.toString() ? `?${qs.toString()}` : ''}`);
+    return leads as any[];
+  },
+  async createLead(data: { firstName?: string; lastName?: string; name?: string; email?: string; phone?: string; company?: string; source?: string; status?: string; tags?: string[]; assignedAgent?: string; meta?: any }) {
+    const { lead } = await req('/leads/new', { method: 'POST', body: JSON.stringify(data) });
+    return lead;
+  },
+  async getLead(id: string) {
+    const { lead } = await req(`/leads/${id}`);
+    return lead as any;
+  },
+  async updateLead(id: string, data: any) {
+    const { lead } = await req(`/leads/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    return lead;
+  },
+  async deleteLead(id: string) {
+    return await req(`/leads/${id}`, { method: 'DELETE' });
+  },
+  async assignLead(id: string, agentId: string) {
+    const { lead } = await req(`/leads/${id}/assign`, { method: 'POST', body: JSON.stringify({ agentId }) });
+    return lead;
+  },
+  async addLeadNote(id: string, text: string) {
+    const { lead } = await req(`/leads/${id}/notes`, { method: 'POST', body: JSON.stringify({ text }) });
+    return lead;
+  },
+  async importLeadsCsv(form: FormData) {
+    const res = await fetch(`${API_BASE}/leads/import`, {
+      method: 'POST',
+      body: form,
+      headers: {
+        ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
+      } as any,
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  // Integrations (super agent)
+  async listIntegrationConfigs() {
+    const { integrations } = await req('/leads/integrations/configs');
+    return integrations as any[];
+  },
+  async upsertIntegrationConfig(data: { platform: string; enabled?: boolean; autoSync?: boolean; settings?: any; secrets?: any }) {
+    const { integration } = await req('/leads/integrations/configs', { method: 'PUT', body: JSON.stringify(data) });
+    return integration;
+  },
+  async syncLead(id: string, target: string) {
+    return await req(`/leads/${id}/sync?target=${encodeURIComponent(target)}`, { method: 'POST' });
   }
 };

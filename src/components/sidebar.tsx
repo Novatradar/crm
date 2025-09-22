@@ -2,11 +2,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Shield, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Users, Shield, MessageSquare, ListChecks } from "lucide-react";
 import { api } from "@/lib/api";
 
 const items = [
   { href: "/", label: "Dashboard", Icon: LayoutDashboard },
+  { href: "/leads", label: "Leads", Icon: ListChecks },
   { href: "/users", label: "Users", Icon: Users },
   { href: "/chat", label: "Chat", Icon: MessageSquare },
   { href: "/agents", label: "Agents", Icon: Shield },
