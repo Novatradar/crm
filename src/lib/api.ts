@@ -114,6 +114,15 @@ export const api = {
     const { leads } = await req(`/leads${qs.toString() ? `?${qs.toString()}` : ''}`);
     return leads as any[];
   },
+  async listLeadsPaged(params?: { q?: string; status?: string; source?: string; tag?: string; assignedAgent?: string; page?: number; limit?: number }) {
+    const qs = new URLSearchParams();
+    if (params) for (const [k, v] of Object.entries(params)) if (v != null && v !== '') qs.set(k, String(v));
+    return await req(`/leads${qs.toString() ? `?${qs.toString()}` : ''}`);
+  },
+  async listLeadSources() {
+    const { sources } = await req(`/leads/sources`);
+    return sources as string[];
+  },
   async createLead(data: { firstName?: string; lastName?: string; name?: string; email?: string; phone?: string; company?: string; source?: string; status?: string; tags?: string[]; assignedAgent?: string; meta?: any }) {
     const { lead } = await req('/leads/new', { method: 'POST', body: JSON.stringify(data) });
     return lead;
@@ -133,9 +142,21 @@ export const api = {
     const { lead } = await req(`/leads/${id}/assign`, { method: 'POST', body: JSON.stringify({ agentId }) });
     return lead;
   },
+  async autoAssignLead(id: string) {
+    const { lead } = await req(`/leads/${id}/auto-assign`, { method: 'POST' });
+    return lead;
+  },
   async addLeadNote(id: string, text: string) {
     const { lead } = await req(`/leads/${id}/notes`, { method: 'POST', body: JSON.stringify({ text }) });
     return lead;
+  },
+  async listLeadCalls(id: string) {
+    const { calls } = await req(`/leads/${id}/calls`);
+    return calls as any[];
+  },
+  async addLeadCall(id: string, data: { outcome?: string; notes?: string; timestamp?: string }) {
+    const { call } = await req(`/leads/${id}/calls`, { method: 'POST', body: JSON.stringify(data) });
+    return call;
   },
   async importLeadsCsv(form: FormData) {
     const res = await fetch(`${API_BASE}/leads/import`, {

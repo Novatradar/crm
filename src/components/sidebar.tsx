@@ -5,14 +5,6 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, Users, Shield, MessageSquare, ListChecks } from "lucide-react";
 import { api } from "@/lib/api";
 
-const items = [
-  { href: "/", label: "Dashboard", Icon: LayoutDashboard },
-  { href: "/leads", label: "Leads", Icon: ListChecks },
-  { href: "/users", label: "Users", Icon: Users },
-  { href: "/chat", label: "Chat", Icon: MessageSquare },
-  { href: "/agents", label: "Agents", Icon: Shield },
-];
-
 export function Sidebar() {
   const pathname = usePathname();
   const [role, setRole] = useState<string | null>(null);
@@ -47,7 +39,15 @@ export function Sidebar() {
         <div className="text-sm font-semibold text-white">CFD Admin</div>
       </div>
       <nav className="mt-2 space-y-1 px-2">
-        {items.filter(it => (it.href === "/agents" ? role === "super_agent" : true)).map(({ href, label, Icon }) => {
+        {[
+          { href: "/", label: "Dashboard", Icon: LayoutDashboard },
+          { href: "/leads", label: role === 'agent' ? "My Leads" : "Leads", Icon: ListChecks },
+          { href: "/users", label: "Users", Icon: Users },
+          { href: "/chat", label: "Chat", Icon: MessageSquare },
+          { href: "/agents", label: "Agents", Icon: Shield },
+        ]
+          .filter(it => (it.href === "/agents" ? role === "super_agent" : true))
+          .map(({ href, label, Icon }) => {
           const active = pathname === href;
           return (
             <Link

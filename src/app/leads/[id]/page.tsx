@@ -7,7 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { AssignLeadModal } from "@/components/assign-lead-modal";
 import { StatusBadge } from "@/components/status-badge";
+import { PlatformBadge } from "@/components/platform-badge";
+import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { api } from "@/lib/api";
+import { VoiceCallButton } from "@/components/voice-call-button";
+import { PhoneCall } from "lucide-react";
 import { toast } from "sonner";
 
 export default function LeadDetailPage() {
@@ -21,12 +25,18 @@ export default function LeadDetailPage() {
   const [err, setErr] = useState<string | null>(null);
   const [targets, setTargets] = useState<string[]>([]);
   const [target, setTarget] = useState<string>("");
+  const [calls, setCalls] = useState<any[]>([]);
+  const [callData, setCallData] = useState<{ outcome?: string; notes?: string }>({ outcome: '', notes: '' });
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const conferenceName = `lead-${id}`;
+  const hasActive = calls.some((c:any) => !c.endedAt && (!c.callStatus || ["initiated","ringing","answered","in-progress","queued"].includes(String(c.callStatus))));
 
   async function load() {
     try {
       const l = await api.getLead(id);
       setLead(l);
       setStatus(l.status || '');
+      try { setCalls(await api.listLeadCalls(id)); } catch(_) { setCalls([]); }
     } catch (e:any) {
       setErr(e?.message || 'Failed to load');
     }
@@ -44,6 +54,17 @@ export default function LeadDetailPage() {
       }
     }).catch(()=>setRole(null));
   }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        const base = process.env.NEXT_PUBLIC_API_BASE || "https://tradar-be.onrender.com/api/v1";
+        const token = typeof window !== 'undefined' ? localStorage.getItem('agent_token') || '' : '';
+        const r = await fetch(`${base}/voice/token`, { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+        const j = await r.json().catch(()=>({}));
+        setVoiceEnabled(!!j?.enabled);
+      } catch (_) { setVoiceEnabled(false); }
+    })();
+  }, []);
 
   if (err) return <div className="text-red-600">{err}</div>;
   if (!lead) return <div>Loading...</div>;
@@ -56,7 +77,20 @@ export default function LeadDetailPage() {
           <div className="flex items-center gap-2">
             <StatusBadge value={lead.status} />
             {role === 'super_agent' && (
-              <Button className="py-2" variant="secondary" onClick={()=>setOpenAssign(true)}>Assign</Button>
+              <>
+                <Button className="py-2" variant="secondary" onClick={()=>setOpenAssign(true)}>Assign</Button>
+                <Button className="py-2" variant="ghost" onClick={async ()=>{ try { await api.autoAssignLead(id); toast.success('Auto-assigned'); await load(); } catch (e:any) { toast.error(e?.message || 'Failed'); } }}>Auto-Assign</Button>
+              </>
+            )}
+            {role === 'agent' && lead.phone && (
+              voiceEnabled ? (
+                <VoiceCallButton phone={lead.phone} leadId={id} conferenceName={conferenceName} />
+              ) : (
+                <a href={`tel:${String(lead.phone).replace(/[^+0-9]/g, '')}`} className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50" title="Call now"><PhoneCall size={16} /> Call</a>
+              )
+            )}
+            {role === 'super_agent' && voiceEnabled && hasActive && (
+              <VoiceCallButton supervisor conferenceName={conferenceName} label="Barge" />
             )}
           </div>
         </CardHeader>
@@ -65,7 +99,7 @@ export default function LeadDetailPage() {
           <div><div className="text-xs text-gray-500">Email</div><div>{lead.email || '—'}</div></div>
           <div><div className="text-xs text-gray-500">Phone</div><div>{lead.phone || '—'}</div></div>
           <div><div className="text-xs text-gray-500">Company</div><div>{lead.company || '—'}</div></div>
-          <div><div className="text-xs text-gray-500">Source</div><div>{lead.source || '—'}</div></div>
+          <div><div className="text-xs text-gray-500">Platform</div><div><PlatformBadge source={lead.source} /></div></div>
           <div><div className="text-xs text-gray-500">Assigned Agent</div><div>{lead.assignedAgent ? lead.assignedAgent.name : '—'}</div></div>
         </CardContent>
       </Card>
@@ -110,6 +144,50 @@ export default function LeadDetailPage() {
           </CardHeader>
         </Card>
       )}
+
+      <Card>
+        <CardHeader><CardTitle>Call History</CardTitle></CardHeader>
+        <CardContent>
+          <Table>
+            <THead>
+              <TR>
+                <TH>Time</TH>
+                <TH>Status</TH>
+                <TH>Outcome</TH>
+                <TH>Notes</TH>
+                <TH>Agent</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {calls.map((c:any) => (
+                <TR key={c._id}>
+                  <TD>{new Date(c.startedAt || c.timestamp).toLocaleString()}</TD>
+                  <TD>{c.callStatus || '—'}{c.durationSeconds != null ? ` (${c.durationSeconds}s)` : ''}</TD>
+                  <TD>{c.outcome || '—'}</TD>
+                  <TD>{c.notes || '—'}</TD>
+                  <TD>{c.agent?.name || '—'}</TD>
+                </TR>
+              ))}
+              {calls.length === 0 && (
+                <TR><TD colSpan={4}><div className="text-sm text-gray-500">No calls yet.</div></TD></TR>
+              )}
+            </TBody>
+          </Table>
+          <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-4">
+            <div className="md:col-span-1">
+              <Input placeholder="Outcome (e.g., Answered, No answer)" value={callData.outcome || ''} onChange={(e)=>setCallData(d=>({ ...d, outcome: e.target.value }))} />
+            </div>
+            <div className="md:col-span-2">
+              <Input placeholder="Notes" value={callData.notes || ''} onChange={(e)=>setCallData(d=>({ ...d, notes: e.target.value }))} />
+            </div>
+            <div className="md:col-span-1 flex justify-end">
+              <Button className="py-2" onClick={async ()=>{
+                try { await api.addLeadCall(id, { outcome: callData.outcome, notes: callData.notes }); setCallData({ outcome: '', notes: '' }); await load(); } catch(e:any) { /* non-fatal */ }
+              }}>Log Call</Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
