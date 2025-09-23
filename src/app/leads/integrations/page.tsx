@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 type Cfg = { id: string; platform: string; enabled: boolean; autoSync: boolean; settings?: any; connected?: boolean };
 
-export default function LeadIntegrationsPage() {
+function LeadIntegrationsPageInner() {
   const router = useRouter();
   const [configs, setConfigs] = useState<Cfg[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,6 +109,14 @@ export default function LeadIntegrationsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function LeadIntegrationsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LeadIntegrationsPageInner />
+    </Suspense>
   );
 }
 
