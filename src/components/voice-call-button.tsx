@@ -17,11 +17,20 @@ export function VoiceCallButton({ phone, leadId, conferenceName, supervisor = fa
   const [menuOpen, setMenuOpen] = useState<boolean>(false);
   const deviceRef = useRef<any>(null);
   const connRef = useRef<any>(null);
+  const cfgRef = useRef<{ preferredMethod?: 'twilio'|'zoiper'|null } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function init() {
       try {
+        // Load preferred method/config
+        try {
+          const base = process.env.NEXT_PUBLIC_API_BASE || "https://tradar-be.onrender.com/api/v1";
+          const token = typeof window !== 'undefined' ? localStorage.getItem('agent_token') || '' : '';
+          const cr = await fetch(`${base}/voice/config`, { headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+          const cj = await cr.json().catch(()=>({}));
+          if (cj?.config) cfgRef.current = cj.config;
+        } catch (_) {}
         // Fetch token
         const base = process.env.NEXT_PUBLIC_API_BASE || "https://tradar-be.onrender.com/api/v1";
         const token = typeof window !== 'undefined' ? localStorage.getItem('agent_token') || '' : '';
@@ -111,12 +120,22 @@ export function VoiceCallButton({ phone, leadId, conferenceName, supervisor = fa
     }
   }
 
+  const onPrimaryClick = async () => {
+    if (connected) return hangup();
+    if (supervisor) return setMenuOpen((v) => !v);
+    const preferred = cfgRef.current?.preferredMethod;
+    if (preferred === 'twilio' && twilioAvailable) return call();
+    // Default or explicit Zoiper preference
+    if (!preferred || preferred === 'zoiper') return startZoiper();
+    setMenuOpen((v) => !v);
+  };
+
   return (
     <div className={`relative inline-block ${className || ''}`}>
       <Button
         variant={variant as any}
         disabled={loading}
-        onClick={connected ? hangup : () => setMenuOpen((v) => !v)}
+        onClick={onPrimaryClick}
       >
         <BtnIcon size={16} /> {btnLabel}
       </Button>

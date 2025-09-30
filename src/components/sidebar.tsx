@@ -45,8 +45,10 @@ export function Sidebar() {
           { href: "/users", label: "Users", Icon: Users },
           { href: "/chat", label: "Chat", Icon: MessageSquare },
           { href: "/agents", label: "Agents", Icon: Shield },
+          { href: "/settings", label: "Settings", Icon: Shield },
+          { href: "/voice/settings", label: "Call Settings", Icon: Shield },
         ]
-          .filter(it => (it.href === "/agents" ? role === "super_agent" : true))
+          .filter(it => ((it.href === "/agents" || it.href === "/settings" || it.href === "/voice/settings") ? role === "super_agent" : true))
           .map(({ href, label, Icon }) => {
           const active = pathname === href;
           return (

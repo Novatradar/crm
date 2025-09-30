@@ -29,9 +29,25 @@ export const api = {
     if (typeof window !== 'undefined') localStorage.setItem('agent_token', token);
     return agent;
   },
+  // Voice config
+  async getVoiceConfig() {
+    const { config } = await req('/voice/config');
+    return config as { preferredMethod?: 'twilio'|'zoiper'|null; twilioCallerId?: string|null; updatedAt?: string|null };
+  },
+  async updateVoiceConfig(data: { preferredMethod?: 'twilio'|'zoiper'; twilioCallerId?: string }) {
+    const { config } = await req('/voice/config', { method: 'PUT', body: JSON.stringify(data) });
+    return config;
+  },
   async getMe() {
     const { agent } = await req('/auth/me');
     return agent as { id: string; name: string; email: string; role: 'agent'|'super_agent'; status: string };
+  },
+  // Super agent password reset (OTP)
+  async sendSuperAgentPasswordOtp() {
+    return await req('/auth/password/otp', { method: 'POST' });
+  },
+  async changeSuperAgentPassword(oldPassword: string, newPassword: string, otp: string) {
+    return await req('/auth/password/change', { method: 'POST', body: JSON.stringify({ oldPassword, newPassword, otp }) });
   },
   // Users
   async listUsers() {
