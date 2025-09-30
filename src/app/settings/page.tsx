@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,7 +76,7 @@ export default function SettingsPage() {
       <Card className="max-w-xl">
         <CardHeader>
           <CardTitle>Change Password</CardTitle>
-          <CardDescription>We will send an OTP to novatradar@gmail.com before updating</CardDescription>
+          <div className="text-sm text-slate-500">We will send an OTP to novatradar@gmail.com before updating</div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -127,4 +127,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

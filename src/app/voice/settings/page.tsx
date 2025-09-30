@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,7 +65,7 @@ export default function VoiceSettingsPage() {
       <Card className="max-w-xl">
         <CardHeader>
           <CardTitle>Preferred Call Method</CardTitle>
-          <CardDescription>Choose how agents initiate calls</CardDescription>
+          <div className="text-sm text-slate-500">Choose how agents initiate calls</div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
@@ -101,4 +101,3 @@ export default function VoiceSettingsPage() {
     </div>
   );
 }
-
