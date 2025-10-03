@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { Loader2 } from "lucide-react";
 
 type PreferredMethod = 'twilio' | 'zoiper';
 
@@ -85,19 +86,19 @@ export default function VoiceSettingsPage() {
           <div className="space-y-2">
             <Label htmlFor="callerId">Twilio Caller ID (outgoing number)</Label>
             <Input id="callerId" placeholder="+15551234567" value={twilioCallerId} onChange={(e) => setTwilioCallerId(e.target.value)} />
-            <p className="text-xs text-gray-500">Must be a Twilio verified or purchased number. Used as the caller ID for Twilio outbound calls.</p>
+            {/* <p className="text-xs text-gray-500">Must be a Twilio verified or purchased number. Used as the caller ID for Twilio outbound calls.</p> */}
           </div>
 
           <div className="pt-2">
-            <Button onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save Settings'}</Button>
+            <Button onClick={save} disabled={saving}>{saving ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Saving…</>) : 'Save Settings'}</Button>
           </div>
         </CardContent>
       </Card>
 
-      <div className="text-xs text-gray-500 max-w-2xl">
+      {/* <div className="text-xs text-gray-500 max-w-2xl">
         <p className="mb-2"><strong>Zoiper:</strong> Outgoing caller ID is controlled by your SIP provider/account in Zoiper. You generally do not need to configure a number here for Zoiper.</p>
         <p><strong>Twilio:</strong> Ensure the Caller ID is a Twilio number in your account or a verified outgoing caller ID in Twilio. This number will be displayed to the lead when you call using Twilio.</p>
-      </div>
+      </div> */}
     </div>
   );
 }

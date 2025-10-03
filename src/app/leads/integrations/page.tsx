@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -15,6 +16,8 @@ function LeadIntegrationsPageInner() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const params = useSearchParams();
+  const [sfConnecting, setSfConnecting] = useState(false);
+  const [zohoConnecting, setZohoConnecting] = useState(false);
 
   async function load() {
     try { setConfigs(await api.listIntegrationConfigs()); } catch (e:any) { setErr(e?.message || 'Failed'); } finally { setLoading(false); }
@@ -61,9 +64,9 @@ function LeadIntegrationsPageInner() {
             <div className="text-sm text-gray-700">Connection</div>
             <div className="flex items-center gap-2">
               <span className={`text-xs ${row('salesforce').connected ? 'text-green-600' : 'text-gray-500'}`}>{row('salesforce').connected ? 'Connected' : 'Not connected'}</span>
-              <Button className="py-2" variant="secondary" onClick={async ()=>{
-                try { const { url } = await apiRequest('/leads/integrations/oauth/salesforce/start'); window.location.href = url; } catch (e:any) { toast.error(e?.message || 'Failed to start OAuth'); }
-              }}>Connect</Button>
+              <Button className="py-2" variant="secondary" disabled={sfConnecting} onClick={async ()=>{
+                try { setSfConnecting(true); const { url } = await apiRequest('/leads/integrations/oauth/salesforce/start'); window.location.href = url; } catch (e:any) { toast.error(e?.message || 'Failed to start OAuth'); } finally { setSfConnecting(false); }
+              }}>{sfConnecting ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Connecting…</>) : 'Connect'}</Button>
             </div>
           </div>
         </CardContent>
@@ -81,9 +84,9 @@ function LeadIntegrationsPageInner() {
             <div className="text-sm text-gray-700">Connection</div>
             <div className="flex items-center gap-2">
               <span className={`text-xs ${row('zoho').connected ? 'text-green-600' : 'text-gray-500'}`}>{row('zoho').connected ? 'Connected' : 'Not connected'}</span>
-              <Button className="py-2" variant="secondary" onClick={async ()=>{
-                try { const { url } = await apiRequest('/leads/integrations/oauth/zoho/start'); window.location.href = url; } catch (e:any) { toast.error(e?.message || 'Failed to start OAuth'); }
-              }}>Connect</Button>
+              <Button className="py-2" variant="secondary" disabled={zohoConnecting} onClick={async ()=>{
+                try { setZohoConnecting(true); const { url } = await apiRequest('/leads/integrations/oauth/zoho/start'); window.location.href = url; } catch (e:any) { toast.error(e?.message || 'Failed to start OAuth'); } finally { setZohoConnecting(false); }
+              }}>{zohoConnecting ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Connecting…</>) : 'Connect'}</Button>
             </div>
           </div>
         </CardContent>
@@ -120,40 +123,44 @@ export default function LeadIntegrationsPage() {
   );
 }
 
-function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v:boolean)=>void }) {
+function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v:boolean)=>Promise<void>|void }) {
+  const [busy, setBusy] = useState(false);
   return (
     <div className="flex items-center justify-between">
       <div className="text-sm text-gray-700">{label}</div>
       <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
-        <input type="checkbox" checked={value} onChange={(e)=>onChange(e.target.checked)} />
+        <input type="checkbox" checked={value} disabled={busy} onChange={async (e)=>{ try { setBusy(true); await onChange(e.target.checked); } finally { setBusy(false); } }} />
         <span>{value ? 'On' : 'Off'}</span>
+        {busy && <Loader2 size={14} className="ml-1 animate-spin text-gray-500" />}
       </label>
     </div>
   );
 }
 
-function SettingRow({ label, value, placeholder, onSave }: { label: string; value: string; placeholder?: string; onSave: (v:string)=>void }) {
+function SettingRow({ label, value, placeholder, onSave }: { label: string; value: string; placeholder?: string; onSave: (v:string)=>Promise<void>|void }) {
   const [v, setV] = useState(value);
+  const [saving, setSaving] = useState(false);
   useEffect(()=>setV(value), [value]);
   return (
     <div>
       <div className="text-xs text-gray-600 mb-1">{label}</div>
       <div className="flex gap-2">
-        <Input value={v} placeholder={placeholder} onChange={(e)=>setV(e.target.value)} />
-        <Button className="py-2" onClick={()=>onSave(v)}>Save</Button>
+        <Input value={v} placeholder={placeholder} onChange={(e)=>setV(e.target.value)} disabled={saving} />
+        <Button className="py-2" onClick={async ()=>{ try { setSaving(true); await onSave(v); } finally { setSaving(false); } }} disabled={saving}>{saving ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Saving…</>) : 'Save'}</Button>
       </div>
     </div>
   );
 }
 
-function SecretRow({ label, placeholder, onSave }: { label: string; placeholder?: string; onSave: (v:string)=>void }) {
+function SecretRow({ label, placeholder, onSave }: { label: string; placeholder?: string; onSave: (v:string)=>Promise<void>|void }) {
   const [v, setV] = useState('');
+  const [saving, setSaving] = useState(false);
   return (
     <div>
       <div className="text-xs text-gray-600 mb-1">{label}</div>
       <div className="flex gap-2">
-        <Input type="password" value={v} placeholder={placeholder} onChange={(e)=>setV(e.target.value)} />
-        <Button className="py-2" onClick={()=>{ onSave(v); setV(''); }}>Save</Button>
+        <Input type="password" value={v} placeholder={placeholder} onChange={(e)=>setV(e.target.value)} disabled={saving} />
+        <Button className="py-2" onClick={async ()=>{ try { setSaving(true); await onSave(v); setV(''); } finally { setSaving(false); } }} disabled={saving}>{saving ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Saving…</>) : 'Save'}</Button>
       </div>
     </div>
   );

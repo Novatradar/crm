@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { PhoneCall, PhoneOff } from "lucide-react";
+import { PhoneCall, PhoneOff, Loader2 } from "lucide-react";
 
 declare global {
   interface Window { Twilio?: any }
@@ -110,11 +110,32 @@ export function VoiceCallButton({ phone, leadId, conferenceName, supervisor = fa
         }
       }
       if (!num) {
-        toast.error('Phone number not available for this lead');
+        toast.error('Phone number not available');
         return;
       }
-      const link = `zoiper://call?number=${encodeURIComponent(num)}`;
-      window.location.href = link;
+      const openZoiper = () => { window.location.href = `zoiper://call?number=${encodeURIComponent(num)}`; };
+      const fallbackSip = () => { try { window.location.href = `sip:${encodeURIComponent(num)}`; } catch (_) {} };
+      const fallbackTel = () => { try { window.location.href = `tel:${encodeURIComponent(num)}`; } catch (_) {} };
+      // Try Zoiper scheme, then fallback if no handler is registered
+      const before = document.visibilityState;
+      openZoiper();
+      setTimeout(() => {
+        if (document.visibilityState === 'visible' && before === 'visible') {
+          // Try SIP universal scheme, then tel as last resort
+          fallbackSip();
+          setTimeout(() => {
+            if (document.visibilityState === 'visible') {
+              fallbackTel();
+              setTimeout(() => {
+                if (document.visibilityState === 'visible') {
+                  toast.error('No app registered to handle calls. Install Zoiper or use Twilio.');
+                  try { window.open('https://www.zoiper.com/en/voip-softphone/download/current', '_blank'); } catch (_) {}
+                }
+              }, 600);
+            }
+          }, 500);
+        }
+      }, 800);
     } catch (_) {
       toast.error('Failed to open Zoiper');
     }
@@ -135,9 +156,18 @@ export function VoiceCallButton({ phone, leadId, conferenceName, supervisor = fa
       <Button
         variant={variant as any}
         disabled={loading}
-        onClick={onPrimaryClick}
+        onClick={onPrimaryClick} className="py-2 flex gap-1 items-center"
       >
-        <BtnIcon size={16} /> {btnLabel}
+        {loading ? (
+          <>
+            <Loader2 size={16} className="mr-2 animate-spin" />
+            {supervisor ? 'Connecting…' : 'Calling…'}
+          </>
+        ) : (
+          <>
+            <BtnIcon size={14} /> {btnLabel}
+          </>
+        )}
       </Button>
       {!connected && !supervisor && menuOpen && (
         <div className="absolute right-0 z-20 mt-2 w-40 rounded-md border border-slate-200 bg-white p-1 shadow-md">

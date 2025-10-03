@@ -11,7 +11,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { PlatformBadge } from "@/components/platform-badge";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { PhoneCall, StickyNote } from "lucide-react";
+import { PhoneCall, StickyNote, Loader2 } from "lucide-react";
 import { VoiceCallButton } from "@/components/voice-call-button";
 import { LeadQuickNoteModal } from "@/components/lead-quick-note-modal";
 
@@ -37,6 +37,9 @@ export default function LeadsPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteLeadId, setNoteLeadId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [autoAssigningId, setAutoAssigningId] = useState<string | null>(null);
 
   const filters = useMemo(() => ({ q: query.trim(), status: status || undefined, source: source || undefined }), [query, status, source]);
 
@@ -150,9 +153,13 @@ export default function LeadsPage() {
                     <Link href={`/leads/${l.id}`} className="inline-flex rounded-md border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">View</Link>
                     {role === 'super_agent' && !l.assignedAgent && (
                       <button
-                        className="inline-flex rounded-md border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50"
-                        onClick={async ()=>{ try { await api.autoAssignLead(l.id); toast.success('Auto-assigned'); await load(page); } catch (e:any) { toast.error(e?.message || 'Failed'); } }}
-                      >Auto-Assign</button>
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50"
+                        disabled={autoAssigningId === l.id}
+                        onClick={async ()=>{ 
+                          setAutoAssigningId(l.id);
+                          try { await api.autoAssignLead(l.id); toast.success('Auto-assigned'); await load(page); } catch (e:any) { toast.error(e?.message || 'Failed'); } finally { setAutoAssigningId(null); }
+                        }}
+                      >{autoAssigningId === l.id ? (<><Loader2 size={14} className="animate-spin" /> Assigning…</>) : 'Auto-Assign'}</button>
                     )}
                     {role === 'agent' && meId && l.assignedAgent && (l as any).assignedAgent.id === meId && (
                       <VoiceCallButton leadId={l.id} conferenceName={`lead-${l.id}`} />
@@ -178,8 +185,8 @@ export default function LeadsPage() {
       <div className="flex items-center justify-between px-6 pb-4">
         <div className="text-xs text-gray-600">Page {page} of {Math.max(1, Math.ceil(total / Math.max(1, limit)))}</div>
         <div className="flex items-center gap-2">
-          <Button className="py-2" variant="secondary" disabled={page <= 1} onClick={async ()=>{ const np = Math.max(1, page-1); setPage(np); await load(np); }}>Prev</Button>
-          <Button className="py-2" variant="secondary" disabled={page >= Math.ceil(total / Math.max(1, limit))} onClick={async ()=>{ const np = page + 1; setPage(np); await load(np); }}>Next</Button>
+          <Button className="py-2" variant="secondary" disabled={page <= 1 || loading} onClick={async ()=>{ const np = Math.max(1, page-1); setPage(np); await load(np); }}>{loading ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Loading…</>) : 'Prev'}</Button>
+          <Button className="py-2" variant="secondary" disabled={page >= Math.ceil(total / Math.max(1, limit)) || loading} onClick={async ()=>{ const np = page + 1; setPage(np); await load(np); }}>{loading ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Loading…</>) : 'Next'}</Button>
         </div>
       </div>
 
@@ -216,6 +223,7 @@ export default function LeadsPage() {
               <Button className="py-2" variant="secondary" onClick={()=>setOpenNew(false)}>Cancel</Button>
               <Button className="py-2" onClick={async ()=>{
                 try {
+                  setCreating(true);
                   const payload = { ...newData, tags: String(newData.tags||'').split(',').map((t:string)=>t.trim()).filter(Boolean) };
                   await api.createLead(payload);
                   toast.success('Lead created');
@@ -224,8 +232,8 @@ export default function LeadsPage() {
                   await load();
                 } catch (e:any) {
                   toast.error(e?.message || 'Failed to create lead');
-                }
-              }}>Create</Button>
+                } finally { setCreating(false); }
+              }} disabled={creating}>{creating ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Creating…</>) : 'Create'}</Button>
             </div>
           </div>
         </DialogContent>
@@ -240,11 +248,12 @@ export default function LeadsPage() {
             <input type="file" accept=".csv,text/csv" onChange={(e)=>setCsvFile(e.target.files?.[0] || null)} />
             <div className="flex justify-end gap-2">
               <Button className="py-2" variant="secondary" onClick={()=>setOpenImport(false)}>Cancel</Button>
-              <Button className="py-2" disabled={!csvFile} onClick={async ()=>{
+              <Button className="py-2" disabled={!csvFile || uploading} onClick={async ()=>{
                 if (!csvFile) return;
                 const form = new FormData();
                 form.append('file', csvFile);
                 try {
+                  setUploading(true);
                   const res = await api.importLeadsCsv(form);
                   toast.success(`Imported ${res.createdCount} leads; ${res.duplicateCount} duplicates`);
                   setOpenImport(false);
@@ -252,8 +261,8 @@ export default function LeadsPage() {
                   await load();
                 } catch (e:any) {
                   toast.error(e?.message || 'Import failed');
-                }
-              }}>Upload</Button>
+                } finally { setUploading(false); }
+              }}>{uploading ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Uploading…</>) : 'Upload'}</Button>
             </div>
           </div>
         </DialogContent>

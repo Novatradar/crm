@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 
 export default function SettingsPage() {
@@ -113,13 +113,13 @@ export default function SettingsPage() {
               <Input id="otp" placeholder="Enter 6-digit code" value={otp} onChange={(e) => setOtp(e.target.value)} />
             </div>
             <Button variant="outline" onClick={sendOtp} disabled={loadingSend}>
-              {loadingSend ? "Sending..." : otpSent ? "Resend OTP" : "Send OTP"}
+              {loadingSend ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Sending...</>) : (otpSent ? "Resend OTP" : "Send OTP")}
             </Button>
           </div>
 
           <div className="pt-2">
             <Button onClick={handleChangePassword} disabled={loadingChange}>
-              {loadingChange ? "Updating..." : "Update Password"}
+              {loadingChange ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Updating...</>) : "Update Password"}
             </Button>
           </div>
         </CardContent>

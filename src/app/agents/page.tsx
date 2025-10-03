@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { CreateAgentForm } from "@/components/create-agent-form";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function AgentsPage() {
@@ -18,6 +19,7 @@ export default function AgentsPage() {
   const [err, setErr] = useState<string | null>(null);
 
   const [open, setOpen] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
   async function load() {
     try { setAgents(await api.listAgents()); } catch (e:any) { setErr(e?.message || 'Failed'); } finally { setLoading(false); }
   }
@@ -33,12 +35,13 @@ export default function AgentsPage() {
 
   async function setStatus(id: string, status: 'active'|'suspended'|'blocked') {
     try {
+      setStatusUpdatingId(id);
       await api.updateAgentStatus(id, status);
       toast.success(status === 'active' ? 'Agent activated' : status === 'suspended' ? 'Agent suspended' : 'Status updated');
       await load();
     } catch (e:any) {
       toast.error(e?.message || 'Failed to update status');
-    }
+    } finally { setStatusUpdatingId(null); }
   }
 
   return (
@@ -72,10 +75,10 @@ export default function AgentsPage() {
                       <span className="inline-flex rounded-md border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">View</span>
                     </Link>
                     {a.status === 'active' && (
-                      <Button className="py-2" size="sm" variant="secondary" onClick={()=>setStatus(a.id, 'suspended')}>Suspend</Button>
+                      <Button className="py-2" size="sm" variant="secondary" onClick={()=>setStatus(a.id, 'suspended')} disabled={statusUpdatingId === a.id}>{statusUpdatingId === a.id ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Updating…</>) : 'Suspend'}</Button>
                     )}
                     {a.status === 'suspended' && (
-                      <Button className="py-2" size="sm" variant="ghost" onClick={()=>setStatus(a.id, 'active')}>Activate</Button>
+                      <Button className="py-2" size="sm" variant="ghost" onClick={()=>setStatus(a.id, 'active')} disabled={statusUpdatingId === a.id}>{statusUpdatingId === a.id ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Updating…</>) : 'Activate'}</Button>
                     )}
                   </TD>
                 </TR>

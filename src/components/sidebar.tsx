@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Shield, MessageSquare, ListChecks } from "lucide-react";
+import { LayoutDashboard, Users, MessageSquare, ListChecks, UserCog, Settings, PhoneCall } from "lucide-react";
 import { api } from "@/lib/api";
 
 export function Sidebar() {
@@ -44,9 +44,9 @@ export function Sidebar() {
           { href: "/leads", label: role === 'agent' ? "My Leads" : "Leads", Icon: ListChecks },
           { href: "/users", label: "Users", Icon: Users },
           { href: "/chat", label: "Chat", Icon: MessageSquare },
-          { href: "/agents", label: "Agents", Icon: Shield },
-          { href: "/settings", label: "Settings", Icon: Shield },
-          { href: "/voice/settings", label: "Call Settings", Icon: Shield },
+          { href: "/agents", label: "Agents", Icon: UserCog },
+          { href: "/settings", label: "Settings", Icon: Settings },
+          { href: "/voice/settings", label: "Call Settings", Icon: PhoneCall },
         ]
           .filter(it => ((it.href === "/agents" || it.href === "/settings" || it.href === "/voice/settings") ? role === "super_agent" : true))
           .map(({ href, label, Icon }) => {

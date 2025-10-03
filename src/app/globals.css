@@ -8,3 +8,5 @@ html, body, #__next {
   --sidebar-width: 240px;
 }
 
+/* Ensure all native buttons show pointer cursor */
+button { cursor: pointer; }

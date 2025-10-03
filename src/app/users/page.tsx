@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { StatusBadge } from "@/components/status-badge";
 import { api } from "@/lib/api";
+import { VoiceCallButton } from "@/components/voice-call-button";
 
 type Row = { id: string; name: string; email: string; phone?: string; status: string; assignedAgent?: { _id: string; name: string; email: string } };
 
@@ -13,14 +14,15 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<'agent'|'super_agent'|null>(null);
+  const [meId, setMeId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
         const me = await api.getMe();
-        if (mounted) setRole(me.role as any);
-      } catch (_) { setRole(null as any); }
+        if (mounted) { setRole(me.role as any); setMeId(me.id); }
+      } catch (_) { setRole(null as any); setMeId(null); }
       try {
         const users = await api.listUsers();
         if (mounted) setRows(users);
@@ -67,10 +69,13 @@ export default function UsersPage() {
                   {role === 'super_agent' && <TD>{u.phone || '—'}</TD>}
                   <TD><StatusBadge value={u.status} /></TD>
                   <TD>{u.assignedAgent ? u.assignedAgent.name : '—'}</TD>
-                  <TD>
+                  <TD className="space-x-2">
                     <Link href={`/users/${u.id}`}>
                       <span className="inline-flex rounded-md border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">View</span>
                     </Link>
+                    {role === 'agent' && meId && u.assignedAgent && (u.assignedAgent as any)._id === meId && (
+                      <VoiceCallButton phone={u.phone} conferenceName={`user-${u.id}`} />
+                    )}
                   </TD>
                 </TR>
               ))}

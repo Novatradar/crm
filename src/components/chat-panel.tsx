@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 export function ChatPanel({ userId }: { userId: string }) {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   async function load() {
@@ -23,12 +25,13 @@ export function ChatPanel({ userId }: { userId: string }) {
   async function send() {
     if (!input.trim()) return;
     try {
+      setSending(true);
       await api.sendChat(userId, input.trim());
       toast.success('Message sent');
     } catch (e:any) {
       toast.error(e?.message || 'Failed to send');
       return;
-    }
+    } finally { setSending(false); }
     setInput("");
     await load();
   }
@@ -53,8 +56,8 @@ export function ChatPanel({ userId }: { userId: string }) {
           </div>
         </ScrollArea>
         <div className="flex gap-2">
-          <Textarea value={input} onChange={(e)=>setInput(e.target.value)} placeholder="Type a message" rows={2} />
-          <Button className="py-2" onClick={send}>Send</Button>
+          <Textarea value={input} onChange={(e)=>setInput(e.target.value)} placeholder="Type a message" rows={2} disabled={sending} />
+          <Button className="py-2" onClick={send} disabled={sending}>{sending ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Sending…</>) : 'Send'}</Button>
         </div>
       </CardContent>
     </Card>

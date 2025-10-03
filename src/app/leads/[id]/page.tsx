@@ -11,7 +11,7 @@ import { PlatformBadge } from "@/components/platform-badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { api } from "@/lib/api";
 import { VoiceCallButton } from "@/components/voice-call-button";
-import { PhoneCall } from "lucide-react";
+import { PhoneCall, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function LeadDetailPage() {
@@ -28,6 +28,11 @@ export default function LeadDetailPage() {
   const [calls, setCalls] = useState<any[]>([]);
   const [callData, setCallData] = useState<{ outcome?: string; notes?: string }>({ outcome: '', notes: '' });
   const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [loggingCall, setLoggingCall] = useState(false);
+  const [addingNote, setAddingNote] = useState(false);
+  const [savingStatus, setSavingStatus] = useState(false);
   const conferenceName = `lead-${id}`;
   const hasActive = calls.some((c:any) => !c.endedAt && (!c.callStatus || ["initiated","ringing","answered","in-progress","queued"].includes(String(c.callStatus))));
 
@@ -86,7 +91,9 @@ export default function LeadDetailPage() {
             {role === 'super_agent' && (
               <>
                 <Button className="py-2" variant="secondary" onClick={()=>setOpenAssign(true)}>Assign</Button>
-                <Button className="py-2" variant="ghost" onClick={async ()=>{ try { await api.autoAssignLead(id); toast.success('Auto-assigned'); await load(); } catch (e:any) { toast.error(e?.message || 'Failed'); } }}>Auto-Assign</Button>
+                <Button className="py-2" variant="ghost" disabled={assigning} onClick={async ()=>{ 
+                  try { setAssigning(true); await api.autoAssignLead(id); toast.success('Auto-assigned'); await load(); } catch (e:any) { toast.error(e?.message || 'Failed'); } finally { setAssigning(false); }
+                }}>{assigning ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Assigning…</>) : 'Auto-Assign'}</Button>
               </>
             )}
             {(role === 'agent' || role === 'super_agent') && (
@@ -123,13 +130,13 @@ export default function LeadDetailPage() {
               </SelectContent>
             </Select>
             <Button className="py-2" onClick={async ()=>{
-              try { await api.updateLead(id, { status }); toast.success('Status updated'); await load(); } catch (e:any) { toast.error(e?.message || 'Failed'); }
-            }}>Save</Button>
+              try { setSavingStatus(true); await api.updateLead(id, { status }); toast.success('Status updated'); await load(); } catch (e:any) { toast.error(e?.message || 'Failed'); } finally { setSavingStatus(false); }
+            }} disabled={savingStatus}>{savingStatus ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Saving…</>) : 'Save'}</Button>
           </div>
         </CardHeader>
       </Card>
 
-      {role === 'super_agent' && (
+      {/* {role === 'super_agent' && (
         <Card>
           <CardHeader className="flex items-center justify-between">
             <CardTitle>Manual Sync</CardTitle>
@@ -140,13 +147,13 @@ export default function LeadDetailPage() {
                   {targets.map((t)=> (<SelectItem key={t} value={t}>{t}</SelectItem>))}
                 </SelectContent>
               </Select>
-              <Button className="py-2" disabled={!target} onClick={async ()=>{
-                try { await api.syncLead(id, target); toast.success('Sync queued'); } catch (e:any) { toast.error(e?.message || 'Failed to sync'); }
-              }}>Sync</Button>
+              <Button className="py-2" disabled={!target || syncing} onClick={async ()=>{
+                try { setSyncing(true); await api.syncLead(id, target); toast.success('Sync queued'); } catch (e:any) { toast.error(e?.message || 'Failed to sync'); } finally { setSyncing(false); }
+              }}>{syncing ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Syncing…</>) : 'Sync'}</Button>
             </div>
           </CardHeader>
         </Card>
-      )}
+      )} */}
 
       <Card>
         <CardHeader><CardTitle>Call History</CardTitle></CardHeader>
@@ -185,8 +192,8 @@ export default function LeadDetailPage() {
             </div>
             <div className="md:col-span-1 flex justify-end">
               <Button className="py-2" onClick={async ()=>{
-                try { await api.addLeadCall(id, { outcome: callData.outcome, notes: callData.notes }); setCallData({ outcome: '', notes: '' }); await load(); } catch(e:any) { /* non-fatal */ }
-              }}>Log Call</Button>
+                try { setLoggingCall(true); await api.addLeadCall(id, { outcome: callData.outcome, notes: callData.notes }); setCallData({ outcome: '', notes: '' }); await load(); } catch(e:any) { /* non-fatal */ } finally { setLoggingCall(false); }
+              }} disabled={loggingCall}>{loggingCall ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Logging…</>) : 'Log Call'}</Button>
             </div>
           </div>
         </CardContent>
@@ -207,8 +214,8 @@ export default function LeadDetailPage() {
               <Input placeholder="Add a note" value={note} onChange={(e)=>setNote(e.target.value)} />
               <Button className="py-2" onClick={async ()=>{
                 if (!note.trim()) return;
-                try { await api.addLeadNote(id, note.trim()); setNote(''); await load(); } catch (e:any) { toast.error(e?.message || 'Failed'); }
-              }}>Add</Button>
+                try { setAddingNote(true); await api.addLeadNote(id, note.trim()); setNote(''); await load(); } catch (e:any) { toast.error(e?.message || 'Failed'); } finally { setAddingNote(false); }
+              }} disabled={addingNote}>{addingNote ? (<><Loader2 size={14} className="mr-2 animate-spin" /> Adding…</>) : 'Add'}</Button>
             </div>
           </div>
         </CardContent>
