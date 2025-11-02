@@ -244,18 +244,147 @@ export default function LeadsPage() {
         <DialogContent>
           <DialogTitle>Import Leads CSV</DialogTitle>
           <div className="mt-3 space-y-3">
-            <div className="text-xs text-gray-600">Headers: firstName,lastName,name,email,phone,company,source,tags</div>
+            <div className="text-xs text-gray-600">
+              Headers: Name, Email, Number, Country, Status, Agent, Whatsapp, Comment
+              <br />
+              All fields are optional. Whatsapp should be Yes/No. Country is a string (e.g. Switzerland).
+            </div>
             <input type="file" accept=".csv,text/csv" onChange={(e)=>setCsvFile(e.target.files?.[0] || null)} />
             <div className="flex justify-end gap-2">
               <Button className="py-2" variant="secondary" onClick={()=>setOpenImport(false)}>Cancel</Button>
               <Button className="py-2" disabled={!csvFile || uploading} onClick={async ()=>{
                 if (!csvFile) return;
-                const form = new FormData();
-                form.append('file', csvFile);
                 try {
                   setUploading(true);
-                  const res = await api.importLeadsCsv(form);
-                  toast.success(`Imported ${res.createdCount} leads; ${res.duplicateCount} duplicates`);
+                  // Read CSV text
+                  const text = await csvFile.text();
+                  // Minimal CSV parser that supports quoted fields
+                  function parseCSV(input: string): string[][] {
+                    const rows: string[][] = [];
+                    let row: string[] = [];
+                    let field = '';
+                    let i = 0;
+                    let inQuotes = false;
+                    while (i < input.length) {
+                      const char = input[i];
+                      if (inQuotes) {
+                        if (char === '"') {
+                          if (input[i+1] === '"') { field += '"'; i += 2; continue; }
+                          inQuotes = false; i++; continue;
+                        } else { field += char; i++; continue; }
+                      } else {
+                        if (char === '"') { inQuotes = true; i++; continue; }
+                        if (char === ',') { row.push(field); field = ''; i++; continue; }
+                        if (char === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+                        if (char === '\r') { // handle CRLF
+                          // If next is \n, skip it in the next iteration
+                          i++;
+                          continue;
+                        }
+                        field += char; i++; continue;
+                      }
+                    }
+                    // push last field/row
+                    row.push(field);
+                    if (row.length > 1 || (row.length === 1 && row[0].trim() !== '')) rows.push(row);
+                    // Remove empty trailing rows
+                    return rows.filter(r => r.some(c => String(c).trim() !== ''));
+                  }
+                  const rows = parseCSV(text);
+                  if (!rows.length) throw new Error('CSV appears empty');
+                  const header = rows[0].map(h => String(h || '').trim());
+                  const body = rows.slice(1);
+                  // Build header index map (case-insensitive)
+                  function idx(name: string) {
+                    const n = name.toLowerCase();
+                    return header.findIndex(h => h.toLowerCase() === n);
+                  }
+                  const iName = idx('Name');
+                  const iEmail = idx('Email');
+                  const iNumber = idx('Number');
+                  const iCountry = idx('Country');
+                  const iStatus = idx('Status');
+                  const iAgent = idx('Agent');
+                  const iWhatsapp = idx('Whatsapp');
+                  const iComment = idx('Comment');
+
+                  // Preload agents to resolve the "Agent" column
+                  let agents: any[] = [];
+                  try { agents = await api.listAgents(); } catch (_) { agents = []; }
+                  const agentByEmail = new Map<string, any>();
+                  const agentByName = new Map<string, any>();
+                  agents.forEach(a => {
+                    if (a.email) agentByEmail.set(String(a.email).toLowerCase(), a);
+                    if (a.name) agentByName.set(String(a.name).toLowerCase(), a);
+                  });
+
+                  const normalizeStatus = (s?: string) => {
+                    const v = String(s || '').trim().toLowerCase();
+                    const allowed = new Set(['new','contacted','qualified','unqualified','converted','archived']);
+                    return allowed.has(v) ? v : undefined;
+                  };
+                  const parseWhatsapp = (v?: string) => {
+                    const t = String(v || '').trim().toLowerCase();
+                    if (['yes','y','true','1'].includes(t)) return true;
+                    if (['no','n','false','0'].includes(t)) return false;
+                    return undefined;
+                  };
+
+                  let created = 0;
+                  let failed = 0;
+                  let duplicates = 0;
+
+                  for (let r = 0; r < body.length; r++) {
+                    const cols = body[r];
+                    const name = iName >= 0 ? cols[iName]?.trim() : '';
+                    const email = iEmail >= 0 ? cols[iEmail]?.trim() : '';
+                    const phone = iNumber >= 0 ? cols[iNumber]?.trim() : '';
+                    const country = iCountry >= 0 ? cols[iCountry]?.trim() : '';
+                    const statusRaw = iStatus >= 0 ? cols[iStatus]?.trim() : '';
+                    const agentRef = iAgent >= 0 ? cols[iAgent]?.trim() : '';
+                    const whatsappRaw = iWhatsapp >= 0 ? cols[iWhatsapp]?.trim() : '';
+                    const comment = iComment >= 0 ? cols[iComment]?.trim() : '';
+
+                    // Skip completely empty rows
+                    if (![name,email,phone,country,statusRaw,agentRef,whatsappRaw,comment].some(v => String(v || '').trim() !== '')) continue;
+
+                    let assignedAgent: string | undefined = undefined;
+                    if (agentRef) {
+                      const refLc = agentRef.toLowerCase();
+                      const byEmail = agentByEmail.get(refLc);
+                      const byName = agentByName.get(refLc);
+                      const match = byEmail || byName;
+                      if (match && (match.id || match._id)) assignedAgent = String(match.id || match._id);
+                    }
+
+                    const status = normalizeStatus(statusRaw);
+                    const whatsapp = parseWhatsapp(whatsappRaw);
+
+                    const meta: any = {};
+                    if (country) meta.country = country;
+                    if (comment) meta.comment = comment;
+                    if (whatsapp !== undefined) meta.whatsapp = whatsapp;
+                    if (agentRef && !assignedAgent) meta.agent = agentRef; // preserve reference if not resolved
+                    meta.importSource = 'csv';
+
+                    try {
+                      await api.createLead({
+                        name: name || undefined,
+                        email: email || undefined,
+                        phone: phone || undefined,
+                        status,
+                        ...(assignedAgent ? { assignedAgent } : {}),
+                        meta,
+                        source: 'csv_import'
+                      });
+                      created++;
+                    } catch (e:any) {
+                      const msg = String(e?.message || '').toLowerCase();
+                      if (msg.includes('duplicate') || msg.includes('exists')) duplicates++; else failed++;
+                    }
+                  }
+
+                  toast.success(`Imported ${created} lead(s). ${duplicates} duplicates. ${failed} failed.`);
                   setOpenImport(false);
                   setCsvFile(null);
                   await load();
